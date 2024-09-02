@@ -1,6 +1,9 @@
-# Ignorar la carpeta installers
-installers/
-test/
+# Ignorar todo menos .gitignore y .gitkeep
+*
+!.gitignore
+!.gitkeep
+
+
 
 # Ignorar archivos temporales
 *.log
