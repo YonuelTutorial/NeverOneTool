@@ -1,6 +1,11 @@
-# No ignorar .gitignore y .gitkeep
-!.gitignore
-!.gitkeep
+# Ignorar todo dentro de la carpeta installers
+installers/*
+
+# No ignorar la carpeta en sí
+!installers/
+
+# No ignorar el .gitignore dentro de installers
+!installers/.gitignore
 
 # Ignorar archivos temporales
 *.log
