@@ -1,0 +1,7 @@
+# Ignorar la carpeta installers
+installers/
+test/
+
+# Ignorar archivos temporales
+*.log
+*.tmp
