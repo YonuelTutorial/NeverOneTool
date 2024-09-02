@@ -1,9 +1,6 @@
-# Ignorar todo menos .gitignore y .gitkeep
-*
+# No ignorar .gitignore y .gitkeep
 !.gitignore
 !.gitkeep
-
-
 
 # Ignorar archivos temporales
 *.log
