@@ -2,7 +2,10 @@ import customtkinter as ctk
 import tkinter.ttk as ttk
 from ttkwidgets import CheckboxTreeview
 import json
-
+import os
+import zipfile
+import subprocess
+import threading
 # Configura el tema de la aplicación
 ctk.set_appearance_mode("dark")  # Cambia a "light" si prefieres un tema claro
 ctk.set_default_color_theme("dark-blue")
@@ -20,22 +23,94 @@ def load_programs():
         data = json.load(file)
         return data['programs'][0]  # Accedemos al primer elemento ya que JSON tiene una lista con un solo dict
 
+def update_progress_bar(progress_bar, value):
+    progress_bar.set(value)
 
+def update_log(log_text, message):
+    log_text.insert("end", f"{message}\n")
+    log_text.yview("end")
+
+def start_installation_thread():
+    installation_thread = threading.Thread(target=install_selected_programs)
+    installation_thread.start()
+
+def extract_zip(zip_path):
+    zip_name = os.path.splitext(os.path.basename(zip_path))[0]
+    destination_dir = os.path.join(os.path.dirname(zip_path), zip_name)
+
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(destination_dir)
+        return destination_dir
+    except Exception as e:
+        update_log(log_text, f"Error extracting {zip_path}: {e}")
+        return None
+
+def run_installer(installer_path):
+    installer_ext = os.path.splitext(installer_path)[1].lower()
+
+    # Ejecutar según la extensión del archivo
+    if installer_ext == '.exe':
+        command = [installer_path, '/quiet', '/norestart']
+    elif installer_ext in ['.bat', '.cmd']:
+        command = [installer_path]
+    else:
+        raise ValueError(f"Tipo de archivo desconocido: {installer_ext}")
+
+    subprocess.run(command, check=True)
 
 def install_selected_programs():
     selected_programs = []
 
-    print(f"--------------Total de programas: {install_button.cget("text")}------------------")
+    # Recopilar los programas seleccionados
     for tab_name, tree in treeviews.items():
         for item in tree.get_children():
             if tree.item(item, 'tags') == ('checked',):
                 program_name = tree.item(item, 'values')[0]
                 selected_programs.append(program_name)
     
-    if selected_programs:
-        print(f"Installing: {', '.join(selected_programs)}")
-    else:
-        print("No programs selected.")
+    if not selected_programs:
+        update_log(log_text, "No se seleccionaron programas para instalar.")
+        return
+    # Iterar a través de los programas seleccionados para instalarlos
+    for program_name in selected_programs:
+        installer_path = None
+        zip_path = None
+        extracted_dir = None
+        installer_file_name = None
+        
+        for tab_name, program_list in programs.items():
+            for program in program_list:
+                if program["display_name"] == program_name:
+                    program_path = os.path.join("installers", program["name"])
+                    
+                    # Determinar si se trata de un archivo ZIP o un archivo normal
+                    if '.zip/' in program["name"]:
+                        zip_path = program_path.split('/')[0]
+                        installer_file_name = program_path.split('/')[1]
+                        extracted_dir = extract_zip(zip_path)
+                        if extracted_dir:
+                            installer_path = os.path.join(extracted_dir, installer_file_name)
+                    else:
+                        installer_path = program_path
+                    break
+                
+                
+        # Verificar que la ruta del instalador sea válida
+        if not installer_path or not os.path.isfile(installer_path):
+            update_log(log_text, f"Archivo de instalador no encontrado para {program_name}: {installer_path}")
+            continue
+
+        # Ejecutar el instalador
+        try:
+            update_log(log_text, f"Ejecutando el instalador: {installer_path}")
+            run_installer(installer_path)
+            update_log(log_text, f"{program_name} instalado correctamente....")
+        except Exception as e:
+            log_message = f"Error al instalar {program_name}: {e}"
+            update_log(log_text, log_message)
+            
+        update_log(log_text, f"Instalación completada.")
 
 # Función para actualizar el texto del botón "Instalar"
 def update_install_button(tree, install_button):
@@ -135,6 +210,16 @@ clear_button.pack(side="top", pady=5)
 install_button = ctk.CTkButton(button_frame, text="Install (0)", text_color="white", state="disabled", fg_color="gray")
 install_button.pack(side="bottom", pady=(10, 10), fill="y")
 install_button.configure(command=install_selected_programs)
+
+# Crear el cuadro de log
+log_frame = ctk.CTkFrame(root, width=500, height=150)
+log_frame.pack(side="bottom", fill="x", padx=5, pady=5)
+
+log_text = ctk.CTkTextbox(log_frame, wrap="word")
+log_text.pack(fill="both", expand=True)
+
+progress_bar = ctk.CTkProgressBar(root)
+progress_bar.pack(side="bottom", fill="x", padx=5, pady=5)
 
 
 # Funciones para seleccionar y limpiar la selección de todas las pestañas
